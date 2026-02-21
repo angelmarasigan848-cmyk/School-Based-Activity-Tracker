@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glow Tracker V5 - Firebase Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+        :root { --bg: #0f172a; --card-bg: rgba(30, 41, 59, 0.7); --accent: #8b5cf6; --success: #10b981; --danger: #ef4444; --text: #f1f5f9; }
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: var(--text); margin: 0; padding: 20px; min-height: 100vh; }
+        .glass-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 25px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+        .hidden { display: none !important; }
+        input, select { width: 100%; padding: 14px; margin: 8px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(15,23,42,0.8); color: white; box-sizing: border-box; }
+        button { cursor: pointer; border: none; border-radius: 12px; font-weight: bold; padding: 14px; background: linear-gradient(45deg, #6366f1, #8b5cf6); color: white; transition: 0.3s; }
+        .table-container { overflow-x: auto; border-radius: 15px; background: rgba(15, 23, 42, 0.4); }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: bold; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+        .status-verified { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loginSection" class="glass-card" style="max-width:400px; margin:100px auto; text-align:center;">
+        <h2>SHS Activity Tracker</h2>
+        <input type="text" id="loginName" placeholder="Full Name">
+        <input type="password" id="loginPin" placeholder="4-Digit PIN" maxlength="4">
+        <button onclick="handleLogin()" style="width:100%">Log In</button>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="welcomeMsg" style="margin:0"></h3>
+            <button onclick="location.reload()" style="background:var(--danger)">Logout</button>
+        </div>
+
+        <div id="teacherUI" class="hidden">
+            <div class="glass-card">
+                <h3>Post New Activity</h3>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="actTitle" placeholder="Activity Title">
+                    <button onclick="postActivity()">Post</button>
+                </div>
+            </div>
+            <div class="table-container"><table id="teacherTable"></table></div>
+        </div>
+
+        <div id="studentUI" class="hidden">
+            <div class="table-container"><table id="studentTable"></table></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // --- I-PASTE DITO ANG IYONG FIREBASE CONFIG ---
+    const firebaseConfig = {
+    apiKey: "AIzaSyA_HXyFUzBrZPLEnQYYzu2QFzJpXm_t1A4",
+    authDomain: "activitytracker-e6f5f.firebaseapp.com",
+    databaseURL: "https://activitytracker-e6f5f-default-rtdb.firebaseio.com",
+    projectId: "activitytracker-e6f5f",
+    storageBucket: "activitytracker-e6f5f.firebasestorage.app",
+    messagingSenderId: "87100556836",
+    appId: "1:87100556836:web:ad9d7d434dec586e387ab1"
+  };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const students = ["Heart Alliyah Pineda", "Marasigan Angel", "Ilao Kim Audrey", "Hawak Samantha", "Hawak Zyrell", "Reyes Noah", "Shibayama Yuh", "Hernandez Julius", "Boa Lia Camry", "Tenorio John Isaac", "Gopez Bianca Miracle"];
+    const teachers = ["Ser CC", "Ms. Sarah Ledesma", "Mr. Jerolle Carlos Marasigan"];
+
+    let activeUser = "", activeRole = "";
+
+    window.handleLogin = function() {
+        const name = document.getElementById('loginName').value.trim();
+        const pin = document.getElementById('loginPin').value;
+
+        if (teachers.includes(name)) activeRole = "teacher";
+        else if (students.includes(name)) activeRole = "student";
+        else return alert("User not found in list!");
+
+        activeUser = name;
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+        document.getElementById('welcomeMsg').innerText = `Hello, ${name}!`;
+
+        if (activeRole === "teacher") document.getElementById('teacherUI').classList.remove('hidden');
+        else document.getElementById('studentUI').classList.remove('hidden');
+
+        // Real-time listener
+        onValue(ref(db, 'activities'), (snapshot) => {
+            const data = snapshot.val() ? Object.values(snapshot.val()) : [];
+            render(data);
+        });
+    };
+
+    function render(activities) {
+        if (activeRole === "teacher") {
+            let html = `<tr><th>Student</th>${activities.map(a => `<th>${a.title}</th>`).join('')}</tr>`;
+            students.forEach(s => {
+                html += `<tr><td>${s}</td>`;
+                activities.forEach(a => {
+                    const sub = a.subs ? Object.values(a.subs).find(x => x.student === s) : null;
+                    html += `<td>${sub ? `<span class="status-badge ${sub.status === 'Verified' ? 'status-verified' : ''}">${sub.status}</span>` : '-'}
+                    ${(sub && sub.status === 'Pending') ? `<button onclick="verify('${a.id}','${s}')" style="padding:5px; font-size:10px;">Verify</button>` : ''}</td>`;
+                });
+                html += `</tr>`;
+            });
+            document.getElementById('teacherTable').innerHTML = html;
+        } else {
+            let html = `<tr><th>Activity</th><th>Status</th></tr>`;
+            activities.forEach(a => {
+                const sub = a.subs ? Object.values(a.subs).find(x => x.student === activeUser) : null;
+                html += `<tr><td>${a.title}</td><td>${sub ? `<span class="status-badge ${sub.status === 'Verified' ? 'status-verified' : ''}">${sub.status}</span>` : `<button onclick="submit('${a.id}')">Submit</button>`}</td></tr>`;
+            });
+            document.getElementById('studentTable').innerHTML = html;
+        }
+    }
+
+    window.postActivity = function() {
+        const title = document.getElementById('actTitle').value;
+        if (!title) return;
+        const newRef = push(ref(db, 'activities'));
+        set(newRef, { id: newRef.key, title: title, owner: activeUser });
+        document.getElementById('actTitle').value = "";
+    };
+
+    window.submit = function(id) {
+        push(ref(db, `activities/${id}/subs`), { student: activeUser, status: 'Pending' });
+    };
+
+    window.verify = function(aId, sName) {
+        onValue(ref(db, `activities/${aId}/subs`), (snap) => {
+            const subs = snap.val();
+            for (let k in subs) {
+                if (subs[k].student === sName) update(ref(db, `activities/${aId}/subs/${k}`), { status: 'Verified' });
+            }
+        }, { onlyOnce: true });
+    };
+</script>
+</body>
+</html>
