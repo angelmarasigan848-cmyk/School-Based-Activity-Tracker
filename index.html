@@ -26,6 +26,7 @@
         .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: bold; display: block; margin: 2px auto; width: fit-content; }
         .status-verified { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
         .status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+        .timestamp { font-size: 0.6rem; opacity: 0.6; display: block; }
     </style>
 </head>
 <body>
@@ -60,6 +61,7 @@
                 <h3>Post New Activity</h3>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <input type="text" id="actTitle" placeholder="Activity Title" style="flex:2">
+                    <input type="date" id="actDate" style="flex:1">
                     <button class="btn-main" style="width:auto;" onclick="window.createActivity()">Post Now</button>
                 </div>
             </div>
@@ -80,7 +82,7 @@
     const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_PROJECT.firebaseapp.com",
-        databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+        databaseURL: "https://activitytracker-e6f5f-default-rtdb.firebaseio.com/",
         projectId: "YOUR_PROJECT",
         storageBucket: "YOUR_PROJECT.appspot.com",
         messagingSenderId: "YOUR_ID",
@@ -99,7 +101,6 @@
 
     let activeUser = "", activeRole = "", activitiesData = [];
 
-    // Login Logic
     window.attemptLogin = () => {
         const nameInput = document.getElementById('loginIdentifier').value.trim();
         let matched = teachers.find(t => t.toLowerCase() === nameInput.toLowerCase());
@@ -137,18 +138,24 @@
 
     function renderUI() {
         const search = document.getElementById('universalSearch').value.toLowerCase();
+        const today = new Date().toISOString().split('T')[0];
+
         if(activeRole === "teacher") {
             const secFilter = document.getElementById('sectionFilter').value;
             let pool = secFilter === "ALL" ? Object.values(sectionData).flat() : sectionData[secFilter];
             let myActs = activitiesData.filter(a => a.owner === activeUser);
 
-            let html = `<tr><th class="sticky-col">Student</th>${myActs.map(a => `<th>${a.title} <br><button onclick="window.delAct('${a.id}')" style="background:red; font-size:8px;">Del</button></th>`).join('')}</tr>`;
+            let html = `<tr><th class="sticky-col">Student</th>${myActs.map(a => `<th>${a.title}<br><small>Due: ${a.date}</small><br><button onclick="window.delAct('${a.id}')" style="background:red; font-size:8px; padding:2px 5px;">Del</button></th>`).join('')}</tr>`;
             pool.filter(s => s.toLowerCase().includes(search)).forEach(s => {
                 html += `<tr><td class="sticky-col">${s}</td>`;
                 myActs.forEach(a => {
                     const sub = a.subs ? Object.values(a.subs).find(x => x.student === s) : null;
-                    html += `<td>${sub ? `<span class="status-badge ${sub.status==='Verified'?'status-verified':'status-pending'}">${sub.status}</span>` : '-'}
-                             ${(sub && sub.status==='Pending') ? `<button class="btn-outline" onclick="window.verify('${a.id}','${s}')">Verify</button>` : ''}</td>`;
+                    if(sub) {
+                        html += `<td><span class="status-badge ${sub.status==='Verified'?'status-verified':'status-pending'}">${sub.status}</span><span class="timestamp">${sub.time}</span>
+                                 ${sub.status==='Pending' ? `<button class="btn-outline" onclick="window.verify('${a.id}','${s}')">Verify</button>` : ''}</td>`;
+                    } else {
+                        html += `<td>${a.date < today ? '<span style="color:red; font-weight:bold; font-size:0.7rem;">LATE</span>' : '-'}</td>`;
+                    }
                 });
                 html += `</tr>`;
             });
@@ -160,8 +167,9 @@
                 html += `<tr><td class="sticky-col">${t}</td><td style="display:flex; gap:10px; overflow-x:auto; padding:10px;">`;
                 acts.forEach(a => {
                     const sub = a.subs ? Object.values(a.subs).find(x => x.student === activeUser) : null;
-                    html += `<div style="min-width:140px; background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
-                             <strong>${a.title}</strong><br>${sub ? `<span class="status-badge ${sub.status==='Verified'?'status-verified':''}">${sub.status}</span>` : `<button class="btn-outline" onclick="window.submit('${a.id}')">Submit</button>`}</div>`;
+                    html += `<div style="min-width:160px; background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+                             <strong>${a.title}</strong><br><small>Due: ${a.date}</small><br>
+                             ${sub ? `<span class="status-badge ${sub.status==='Verified'?'status-verified':'status-pending'}">${sub.status}</span><span class="timestamp">${sub.time}</span>` : `<button class="btn-outline" onclick="window.submit('${a.id}')">Submit</button>`}</div>`;
                 });
                 html += `</td></tr>`;
             });
@@ -172,14 +180,16 @@
     // Firebase Actions
     window.createActivity = () => {
         const title = document.getElementById('actTitle').value;
-        if(!title) return;
+        const date = document.getElementById('actDate').value;
+        if(!title || !date) return alert("Fill title and date.");
         const newRef = push(ref(db, 'activities'));
-        set(newRef, { id: newRef.key, title: title, owner: activeUser });
+        set(newRef, { id: newRef.key, title: title, date: date, owner: activeUser });
         document.getElementById('actTitle').value = "";
     };
 
     window.submit = (id) => {
-        push(ref(db, `activities/${id}/subs`), { student: activeUser, status: 'Pending' });
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        push(ref(db, `activities/${id}/subs`), { student: activeUser, status: 'Pending', time: time });
     };
 
     window.verify = (aId, sName) => {
@@ -189,7 +199,7 @@
         }, { onlyOnce: true });
     };
 
-    window.delAct = (id) => { if(confirm("Delete?")) remove(ref(db, `activities/${id}`)); };
+    window.delAct = (id) => { if(confirm("Delete this activity?")) remove(ref(db, `activities/${id}`)); };
 
     document.getElementById('universalSearch').onkeyup = renderUI;
     document.getElementById('sectionFilter').onchange = renderUI;
