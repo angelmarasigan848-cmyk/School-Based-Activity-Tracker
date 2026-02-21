@@ -3,144 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glow Tracker V5 - Firebase Edition</title>
+    <title>Glow Tracker V5 - Firebase Live</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
-        :root { --bg: #0f172a; --card-bg: rgba(30, 41, 59, 0.7); --accent: #8b5cf6; --success: #10b981; --danger: #ef4444; --text: #f1f5f9; }
+        :root { --bg: #0f172a; --card-bg: rgba(30, 41, 59, 0.7); --accent: #8b5cf6; --accent-glow: rgba(139, 92, 246, 0.5); --success: #10b981; --danger: #ef4444; --text: #f1f5f9; }
         body { font-family: 'Poppins', sans-serif; background: #0f172a; color: var(--text); margin: 0; padding: 20px; min-height: 100vh; }
-        .glass-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 25px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+        .bg-glow { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.15), transparent 40%); z-index: -1; }
+        .container { width: 98%; max-width: 1600px; margin: auto; }
         .hidden { display: none !important; }
-        input, select { width: 100%; padding: 14px; margin: 8px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(15,23,42,0.8); color: white; box-sizing: border-box; }
-        button { cursor: pointer; border: none; border-radius: 12px; font-weight: bold; padding: 14px; background: linear-gradient(45deg, #6366f1, #8b5cf6); color: white; transition: 0.3s; }
-        .table-container { overflow-x: auto; border-radius: 15px; background: rgba(15, 23, 42, 0.4); }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .glass-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 25px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+        .login-card { max-width: 400px; margin: 100px auto; text-align: center; }
+        input, select { width: 100%; padding: 14px; margin: 8px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(15,23,42,0.8); color: white; font-size: 1rem; box-sizing: border-box; }
+        button { cursor: pointer; border: none; border-radius: 12px; font-weight: bold; transition: 0.3s; color: white; padding: 14px 20px; }
+        .btn-main { background: linear-gradient(45deg, #6366f1, #8b5cf6); width: 100%; }
+        .btn-danger { background: var(--danger); width: auto; padding: 8px 15px; }
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); width: auto; padding: 5px 10px; font-size: 0.7rem; margin-top: 5px; }
+        .table-container { overflow-x: auto; border-radius: 15px; background: rgba(15, 23, 42, 0.4); margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
         th, td { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: bold; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+        th { color: var(--accent); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+        .sticky-col { text-align: left; font-weight: bold; position: sticky; left: 0; background: #1e293b; z-index: 5; border-right: 2px solid var(--accent); }
+        .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: bold; display: block; margin: 2px auto; width: fit-content; }
         .status-verified { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
     </style>
 </head>
 <body>
 
+<div class="bg-glow"></div>
 <div class="container">
-    <div id="loginSection" class="glass-card" style="max-width:400px; margin:100px auto; text-align:center;">
-        <h2>SHS Activity Tracker</h2>
-        <input type="text" id="loginName" placeholder="Full Name">
-        <input type="password" id="loginPin" placeholder="4-Digit PIN" maxlength="4">
-        <button onclick="handleLogin()" style="width:100%">Log In</button>
+    <div id="loginSection" class="glass-card login-card">
+        <h2 style="color:var(--accent);">SHS Activity Tracker</h2>
+        <input type="text" id="loginIdentifier" placeholder="Full Name">
+        <input type="password" id="userPin" placeholder="4-Digit PIN" maxlength="4">
+        <button class="btn-main" onclick="attemptLogin()">Log In</button>
     </div>
 
     <div id="dashboard" class="hidden">
         <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 id="welcomeMsg" style="margin:0"></h3>
-            <button onclick="location.reload()" style="background:var(--danger)">Logout</button>
+            <div>
+                <small id="roleLabel" style="color:var(--accent); font-weight:bold;"></small>
+                <h2 id="welcomeUser" style="margin:0"></h2>
+            </div>
+            <button class="btn-danger" onclick="location.reload()">Logout</button>
+        </div>
+
+        <div class="glass-card" style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <input type="text" id="universalSearch" placeholder="Search name or activity..." style="flex: 2; margin: 0;">
+            <div id="teacherFilterWrap" class="hidden" style="flex: 1;">
+                <select id="sectionFilter"></select>
+            </div>
         </div>
 
         <div id="teacherUI" class="hidden">
             <div class="glass-card">
                 <h3>Post New Activity</h3>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="actTitle" placeholder="Activity Title">
-                    <button onclick="postActivity()">Post</button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="actTitle" placeholder="Activity Title" style="flex:2">
+                    <button class="btn-main" style="width:auto;" onclick="window.createActivity()">Post Now</button>
                 </div>
             </div>
-            <div class="table-container"><table id="teacherTable"></table></div>
+            <div class="table-container"><table id="teacherMasterTable"></table></div>
         </div>
 
         <div id="studentUI" class="hidden">
-            <div class="table-container"><table id="studentTable"></table></div>
+            <div class="table-container"><table id="studentMasterTable"></table></div>
         </div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // --- I-PASTE DITO ANG IYONG FIREBASE CONFIG ---
+    // --- PASTE MO DITO CONFIG MO ---
     const firebaseConfig = {
-    apiKey: "AIzaSyA_HXyFUzBrZPLEnQYYzu2QFzJpXm_t1A4",
-    authDomain: "activitytracker-e6f5f.firebaseapp.com",
-    databaseURL: "https://activitytracker-e6f5f-default-rtdb.firebaseio.com",
-    projectId: "activitytracker-e6f5f",
-    storageBucket: "activitytracker-e6f5f.firebasestorage.app",
-    messagingSenderId: "87100556836",
-    appId: "1:87100556836:web:ad9d7d434dec586e387ab1"
-  };
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "YOUR_ID",
+        appId: "YOUR_APP_ID"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const students = ["Heart Alliyah Pineda", "Marasigan Angel", "Ilao Kim Audrey", "Hawak Samantha", "Hawak Zyrell", "Reyes Noah", "Shibayama Yuh", "Hernandez Julius", "Boa Lia Camry", "Tenorio John Isaac", "Gopez Bianca Miracle"];
-    const teachers = ["Ser CC", "Ms. Sarah Ledesma", "Mr. Jerolle Carlos Marasigan"];
+    const teachers = ["Ser CC", "Ms. Sarah Ledesma", "Mr. Jerolle Carlos Marasigan", "Ms. Jaenah Reyes", "Ms. Marjorie Montero", "Mr. Jaybie Humarang", "Mr. Jim Tozie Jimenez", "Mr. Czernon Jet Jaranilla", "Mr. Kent Chardrich Canete", "Mr. Jericho Villalobos", "Mr. Ainon Isla", "Ms. Angelyn Guiling", "Ms. Romelia Macatangay-Tiopes"];
+    const sectionData = {
+        "ICT 11 - PIXEL": ["Heart Alliyah Pineda", "Marasigan Angel", "Ilao Kim Audrey", "Hawak Samantha", "Hawak Zyrell", "Reyes Noah", "Shibayama Yuh", "Hernandez Julius", "Boa Lia Camry", "Tenorio John Isaac", "Gopez Bianca Miracle"], 
+        "ABM 11 - ENTREP": ["Orfanel Hannah", "De Leon Alexa","Caringal Arianne", "Almeda Shane May", "Martinez Razzel", "Landicho John Raver", "Balba Ian Dave", "Luya Prince Cedrick", "Guituiza Maraiah Cohlien", "Balderian Rafael"],
+        "ABM 11 - BUSINESS": ["Tolosa Mark Jethro", "Landicho Lenon", "Precious Margareth", "Ismael Jenna Karisse", "Dela Cruz Princess Angel", "Tamayo Aezel Colleen", "Marasigan David", "Maala Michaela", "Baltisoto Reichel Althea", "Mendoza Zeus"]
+    };
 
-    let activeUser = "", activeRole = "";
+    let activeUser = "", activeRole = "", activitiesData = [];
 
-    window.handleLogin = function() {
-        const name = document.getElementById('loginName').value.trim();
-        const pin = document.getElementById('loginPin').value;
+    // Login Logic
+    window.attemptLogin = () => {
+        const nameInput = document.getElementById('loginIdentifier').value.trim();
+        let matched = teachers.find(t => t.toLowerCase() === nameInput.toLowerCase());
+        if(matched) activeRole = "teacher";
+        else {
+            for(let sec in sectionData) {
+                matched = sectionData[sec].find(s => s.toLowerCase() === nameInput.toLowerCase());
+                if(matched) { activeRole = "student"; break; }
+            }
+        }
 
-        if (teachers.includes(name)) activeRole = "teacher";
-        else if (students.includes(name)) activeRole = "student";
-        else return alert("User not found in list!");
-
-        activeUser = name;
+        if(!matched) return alert("Name not found!");
+        activeUser = matched;
+        
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('dashboard').classList.remove('hidden');
-        document.getElementById('welcomeMsg').innerText = `Hello, ${name}!`;
+        document.getElementById('welcomeUser').innerText = activeUser;
+        document.getElementById('roleLabel').innerText = activeRole.toUpperCase();
 
-        if (activeRole === "teacher") document.getElementById('teacherUI').classList.remove('hidden');
-        else document.getElementById('studentUI').classList.remove('hidden');
+        if(activeRole === "teacher") {
+            document.getElementById('teacherUI').classList.remove('hidden');
+            const f = document.getElementById('sectionFilter');
+            f.innerHTML = '<option value="ALL">ALL SECTIONS</option>';
+            Object.keys(sectionData).forEach(s => f.innerHTML += `<option value="${s}">${s}</option>`);
+            document.getElementById('teacherFilterWrap').classList.remove('hidden');
+        } else {
+            document.getElementById('studentUI').classList.remove('hidden');
+        }
 
-        // Real-time listener
-        onValue(ref(db, 'activities'), (snapshot) => {
-            const data = snapshot.val() ? Object.values(snapshot.val()) : [];
-            render(data);
+        onValue(ref(db, 'activities'), (snap) => {
+            activitiesData = snap.val() ? Object.values(snap.val()) : [];
+            renderUI();
         });
     };
 
-    function render(activities) {
-        if (activeRole === "teacher") {
-            let html = `<tr><th>Student</th>${activities.map(a => `<th>${a.title}</th>`).join('')}</tr>`;
-            students.forEach(s => {
-                html += `<tr><td>${s}</td>`;
-                activities.forEach(a => {
+    function renderUI() {
+        const search = document.getElementById('universalSearch').value.toLowerCase();
+        if(activeRole === "teacher") {
+            const secFilter = document.getElementById('sectionFilter').value;
+            let pool = secFilter === "ALL" ? Object.values(sectionData).flat() : sectionData[secFilter];
+            let myActs = activitiesData.filter(a => a.owner === activeUser);
+
+            let html = `<tr><th class="sticky-col">Student</th>${myActs.map(a => `<th>${a.title} <br><button onclick="window.delAct('${a.id}')" style="background:red; font-size:8px;">Del</button></th>`).join('')}</tr>`;
+            pool.filter(s => s.toLowerCase().includes(search)).forEach(s => {
+                html += `<tr><td class="sticky-col">${s}</td>`;
+                myActs.forEach(a => {
                     const sub = a.subs ? Object.values(a.subs).find(x => x.student === s) : null;
-                    html += `<td>${sub ? `<span class="status-badge ${sub.status === 'Verified' ? 'status-verified' : ''}">${sub.status}</span>` : '-'}
-                    ${(sub && sub.status === 'Pending') ? `<button onclick="verify('${a.id}','${s}')" style="padding:5px; font-size:10px;">Verify</button>` : ''}</td>`;
+                    html += `<td>${sub ? `<span class="status-badge ${sub.status==='Verified'?'status-verified':'status-pending'}">${sub.status}</span>` : '-'}
+                             ${(sub && sub.status==='Pending') ? `<button class="btn-outline" onclick="window.verify('${a.id}','${s}')">Verify</button>` : ''}</td>`;
                 });
                 html += `</tr>`;
             });
-            document.getElementById('teacherTable').innerHTML = html;
+            document.getElementById('teacherMasterTable').innerHTML = html;
         } else {
-            let html = `<tr><th>Activity</th><th>Status</th></tr>`;
-            activities.forEach(a => {
-                const sub = a.subs ? Object.values(a.subs).find(x => x.student === activeUser) : null;
-                html += `<tr><td>${a.title}</td><td>${sub ? `<span class="status-badge ${sub.status === 'Verified' ? 'status-verified' : ''}">${sub.status}</span>` : `<button onclick="submit('${a.id}')">Submit</button>`}</td></tr>`;
+            let html = `<tr><th class="sticky-col">Teacher</th><th>Activities</th></tr>`;
+            teachers.forEach(t => {
+                const acts = activitiesData.filter(a => a.owner === t);
+                html += `<tr><td class="sticky-col">${t}</td><td style="display:flex; gap:10px; overflow-x:auto; padding:10px;">`;
+                acts.forEach(a => {
+                    const sub = a.subs ? Object.values(a.subs).find(x => x.student === activeUser) : null;
+                    html += `<div style="min-width:140px; background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+                             <strong>${a.title}</strong><br>${sub ? `<span class="status-badge ${sub.status==='Verified'?'status-verified':''}">${sub.status}</span>` : `<button class="btn-outline" onclick="window.submit('${a.id}')">Submit</button>`}</div>`;
+                });
+                html += `</td></tr>`;
             });
-            document.getElementById('studentTable').innerHTML = html;
+            document.getElementById('studentMasterTable').innerHTML = html;
         }
     }
 
-    window.postActivity = function() {
+    // Firebase Actions
+    window.createActivity = () => {
         const title = document.getElementById('actTitle').value;
-        if (!title) return;
+        if(!title) return;
         const newRef = push(ref(db, 'activities'));
         set(newRef, { id: newRef.key, title: title, owner: activeUser });
         document.getElementById('actTitle').value = "";
     };
 
-    window.submit = function(id) {
+    window.submit = (id) => {
         push(ref(db, `activities/${id}/subs`), { student: activeUser, status: 'Pending' });
     };
 
-    window.verify = function(aId, sName) {
+    window.verify = (aId, sName) => {
         onValue(ref(db, `activities/${aId}/subs`), (snap) => {
             const subs = snap.val();
-            for (let k in subs) {
-                if (subs[k].student === sName) update(ref(db, `activities/${aId}/subs/${k}`), { status: 'Verified' });
-            }
+            for(let k in subs) { if(subs[k].student === sName) update(ref(db, `activities/${aId}/subs/${k}`), { status: 'Verified' }); }
         }, { onlyOnce: true });
     };
+
+    window.delAct = (id) => { if(confirm("Delete?")) remove(ref(db, `activities/${id}`)); };
+
+    document.getElementById('universalSearch').onkeyup = renderUI;
+    document.getElementById('sectionFilter').onchange = renderUI;
 </script>
 </body>
 </html>
